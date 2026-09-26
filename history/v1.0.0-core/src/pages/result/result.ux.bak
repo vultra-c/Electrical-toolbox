@@ -1,0 +1,304 @@
+<template>
+  <div class="page {{pageAnim}}">
+
+    <list class="scroll">
+      <!-- 电路状态 -->
+      <list-item class="result-hero" type="tip">
+        <text class="result-hero-label">电路状态</text>
+        <text class="state-text state-text--{{state}}">{{stateText}}</text>
+        <text class="state-msg">{{message}}</text>
+      </list-item>
+
+      <!-- 总览 -->
+      <list-item class="card" type="tip">
+        <text class="card-title">总览</text>
+        <div class="kv"><text class="kv-k">电源电压 U</text><text class="kv-v">{{totalU}}</text></div>
+        <div class="kv"><text class="kv-k">干路电流 I</text><text class="kv-v kv-v--hi">{{totalI}}</text></div>
+        <div class="kv"><text class="kv-k">总电阻 R</text><text class="kv-v kv-v--hi">{{totalR}}</text></div>
+        <div class="kv"><text class="kv-k">总功率 P</text><text class="kv-v">{{totalP}}</text></div>
+      </list-item>
+
+      <list-item class="card" type="tip">
+        <text class="card-title">各元件读数</text>
+        <div class="head-row">
+          <text class="head-c head-c1">元件</text>
+          <text class="head-c head-c2">U</text>
+          <text class="head-c head-c3">I</text>
+          <text class="head-c head-c4">P</text>
+        </div>
+        <div class="head-row" for="{{rows}}" tid="id">
+          <div class="name-cell">
+            <div class="dot" style="background-color: {{$item.color}};"></div>
+            <text class="name-text">{{$item.name}}</text>
+          </div>
+          <text class="cell">{{$item.U}}</text>
+          <text class="cell">{{$item.I}}</text>
+          <text class="cell">{{$item.P}}</text>
+        </div>
+      </list-item>
+
+      <list-item class="card" type="tip" if="{{tips.length > 0}}">
+        <text class="card-title">解题提示</text>
+        <text class="step" for="{{tips}}" tid="id">{{$item}}</text>
+      </list-item>
+
+      <list-item class="card card--tap" type="tip" @click="backToEdit">
+        <text class="card-title">继续修改电路</text>
+        <text class="card-sub">返回画布调整元件或数值</text>
+      </list-item>
+    </list>
+
+    <div class="topbar">
+      <img static src="/common/images/hd.png" style="position: absolute; left: 0px; top: 0px; width: 336px; height: 84px;" />
+      <img static src="/common/images/back.png" @click="goBack" style="position: absolute; left: 6px; top: 6px; width: 72px; height: 72px;" />
+      <text style="position: absolute; left: 78px; top: 20px; width: 180px; line-height: 40px; font-size: 28px; font-weight: bold; color: #FFFFFF; text-align: center; lines: 1;">求解结果</text>
+      <text style="position: absolute; left: 78px; top: 56px; width: 180px; line-height: 22px; font-size: 18px; font-weight: bold; color: #5B6B84; text-align: center; lines: 1;">{{subTitle}}</text>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import draft from '../../common/draft.js'
+
+var NAMES = {
+  wire: '导线', resistor: '电阻', lamp: '小灯泡', battery: '电源',
+  switch: '开关', ammeter: '电流表', voltmeter: '电压表',
+  rheostat: '变阻器', motor: '电动机', heater: '电热器'
+}
+var COLORS = {
+  wire: '#7A8AA6', resistor: '#5FE3FF', lamp: '#FFC94D', battery: '#FF6B5E',
+  switch: '#69F0AE', ammeter: '#A78BFA', voltmeter: '#F472B6',
+  rheostat: '#4ADE80', motor: '#94A3B8', heater: '#F0A868'
+}
+
+export default {
+  private: {
+    pageAnim: 'page--anim',
+    state: 'ok',
+    stateText: '通路',
+    message: '',
+    subTitle: '',
+    totalU: '—',
+    totalI: '—',
+    totalR: '—',
+    totalP: '—',
+    rows: [],
+    tips: []
+  },
+
+  onInit() {
+    this.fill()
+  },
+
+  onShow() {
+    this.fill()
+    var self = this
+    this.pageAnim = 'page--back'
+    setTimeout(function () {
+      if (self.$valid) self.pageAnim = ''
+    }, 300)
+  },
+
+  fill() {
+    var r = draft.result
+    var els = draft.elements
+    if (!r || !r.ok) {
+      this.state = 'error'
+      this.stateText = '无解'
+      this.message = (r && r.message) ? r.message : '请先在画布上画出电路'
+      this.rows = []
+      this.tips = ['理想电压源不能被导线直接短路。给电源加一个内阻（例如 0.5 Ω）再试。']
+      this.subTitle = '电路参数不合法'
+      return
+    }
+
+    this.state = r.state
+    if (r.state === 'short') {
+      this.stateText = '短路'
+    } else if (r.state === 'open') {
+      this.stateText = '断路'
+    } else {
+      this.stateText = '通路'
+    }
+    this.message = r.message
+    this.subTitle = els.length + ' 个元件'
+
+    this.totalU = fmtU(r.total.U)
+    this.totalI = fmtI(r.total.I)
+    this.totalR = fmtR(r.total.R)
+    this.totalP = fmtP(r.total.P)
+
+    var rows = []
+    for (var i = 0; i < els.length; i++) {
+      var e = els[i]
+      if (e.kind === 'wire') continue
+      var p = r.per[i]
+      if (!p) continue
+      rows.push({
+        id: i,
+        name: NAMES[e.kind] + labelSuffix(e),
+        color: COLORS[e.kind],
+        U: fmtU(Math.abs(p.U)),
+        I: fmtI(Math.abs(p.I)),
+        P: fmtP(Math.abs(p.P))
+      })
+    }
+    // 电流表/电压表单独提示读数
+    this.rows = rows
+    this.tips = buildTips(els, r)
+  },
+
+  backToEdit() {
+    router.back()
+  },
+
+  goBack() {
+    router.back()
+  }
+}
+
+function labelSuffix(e) {
+  if (e.kind === 'battery') return ' ' + short(e.value) + 'V'
+  if (e.kind === 'resistor' || e.kind === 'lamp' || e.kind === 'rheostat' ||
+      e.kind === 'motor' || e.kind === 'heater') return ' ' + short(e.value) + 'Ω'
+  if (e.kind === 'switch' && e.closed === false) return ' 断开'
+  return ''
+}
+
+function short(x) {
+  return String(parseFloat(x.toPrecision(4)))
+}
+
+function buildTips(els, r) {
+  var tips = []
+  for (var i = 0; i < els.length; i++) {
+    var e = els[i]
+    var p = r.per[i]
+    if (e.kind === 'ammeter') {
+      tips.push('电流表读数 ' + fmtI(Math.abs(p.I)) + '（电流表应串联，内阻近似为 0）')
+    }
+    if (e.kind === 'voltmeter') {
+      tips.push('电压表读数 ' + fmtU(Math.abs(p.U)) + '（电压表应并联，内阻极大）')
+    }
+  }
+  if (r.total.I > 0 && isFinite(r.total.R)) {
+    tips.push('验算：R总 = U / I = ' + short(r.total.U) + ' / ' + short(r.total.I) + ' = ' + short(r.total.R) + ' Ω')
+    tips.push('串联分压与电阻成正比，并联分流与电阻成反比')
+  }
+  return tips
+}
+
+function fmtI(x) {
+  var a = Math.abs(x)
+  if (a < 1e-9) return '0'
+  if (a >= 1) return short(x) + 'A'
+  if (a >= 1e-3) return short(x * 1000) + 'mA'
+  return short(x * 1e6) + 'μA'
+}
+function fmtU(x) {
+  var a = Math.abs(x)
+  if (a < 1e-9) return '0'
+  if (a >= 1) return short(x) + 'V'
+  if (a >= 1e-3) return short(x * 1000) + 'mV'
+  return short(x * 1e6) + 'μV'
+}
+function fmtR(x) {
+  if (!isFinite(x)) return '∞'
+  var a = Math.abs(x)
+  if (a >= 1e6) return short(x / 1e6) + 'MΩ'
+  if (a >= 1e3) return short(x / 1e3) + 'kΩ'
+  return short(x) + 'Ω'
+}
+function fmtP(x) {
+  var a = Math.abs(x)
+  if (a < 1e-9) return '0'
+  if (a >= 1) return short(x) + 'W'
+  if (a >= 1e-3) return short(x * 1000) + 'mW'
+  return short(x * 1e6) + 'μW'
+}
+</script>
+
+<style>
+@import '../../common/style.css';
+
+.state-text {
+  font-size: 34px;
+  font-weight: bold;
+  line-height: 44px;
+  color: #69F0AE;
+}
+
+.state-text--short {
+  color: #FF6B5E;
+}
+
+.state-text--open {
+  color: #FFB020;
+}
+
+.state-text--error {
+  color: #FF6B5E;
+}
+
+.state-msg {
+  font-size: 20px;
+  font-weight: bold;
+  color: #62708C;
+  margin-top: 4px;
+  line-height: 28px;
+}
+
+.head-row {
+  width: 100%;
+  height: 40px;
+  flex-direction: row;
+  align-items: center;
+}
+
+.head-c {
+  font-size: 18px;
+  font-weight: bold;
+  color: #55637D;
+  width: 78px;
+  text-align: right;
+}
+
+.head-c1 {
+  width: 100px;
+  text-align: left;
+  flex: 1;
+}
+
+.name-cell {
+  width: 100px;
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  margin-right: 8px;
+}
+
+.name-text {
+  font-size: 20px;
+  font-weight: bold;
+  color: #C7D2E4;
+  flex: 1;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.cell {
+  font-size: 20px;
+  font-weight: bold;
+  color: #E8F0FF;
+  width: 78px;
+  text-align: right;
+  lines: 1;
+}
+</style>

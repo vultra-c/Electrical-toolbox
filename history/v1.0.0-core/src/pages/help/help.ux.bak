@@ -1,0 +1,124 @@
+<template>
+  <div class="page {{pageAnim}}">
+
+    <list class="scroll">
+      <list-item class="card" type="tip">
+        <text class="card-title">怎么用</text>
+        <text class="step">1. 线路图：点任意一格 → 选元件 → 填数值 → 点「求解」</text>
+        <text class="step">2. 万能计算：上方切换题型，点数值行用键盘输入</text>
+        <text class="step">3. 动态电路：填电源与电阻，直接读出示数变化范围</text>
+        <text class="step">4. 公式速查 / 易错点：考前过一遍，考场不慌</text>
+      </list-item>
+
+      <list-item class="card" type="tip">
+        <text class="card-title">元件符号</text>
+        <div class="sym-row" for="{{symbols}}" tid="k">
+          <div class="sym-box" style="border-color: {{$item.color}};">
+            <text class="sym-text" style="color: {{$item.color}};">{{$item.s}}</text>
+          </div>
+          <text class="sym-name">{{$item.n}}</text>
+        </div>
+      </list-item>
+
+      <list-item class="card" type="tip">
+        <text class="card-title">画图规则</text>
+        <text class="step">· 4×4 个节点，连线只能走横竖，相邻两格之间放元件</text>
+        <text class="step">· 同一个位置点两次：第一次放元件，第二次改数值 / 删除</text>
+        <text class="step">· 电源两端的电流方向按正极流出计算</text>
+        <text class="step">· 电压表按理想电压表处理（内阻极大，等效断路）</text>
+      </list-item>
+
+      <list-item class="card" type="tip">
+        <text class="card-title">覆盖范围</text>
+        <text class="step">欧姆定律 · 串并联等效电阻 · 电功率三种表达式</text>
+        <text class="step">额定与实际功率 · 电能与焦耳定律 · 伏安法误差</text>
+        <text class="step">滑动变阻器限流 / 分压 · 开关通断的动态电路</text>
+        <text class="step">单位换算 · 40 条公式速查 · 8 个高频易错点</text>
+      </list-item>
+
+      <list-item class="card" type="tip">
+        <text class="card-title">关于</text>
+        <text class="step">电学工具箱 v1.0.0</text>
+        <text class="step">适配小米手环 9 Pro（336 × 480）</text>
+        <text class="step">全部计算在本地完成，不联网、不上传</text>
+      </list-item>
+    </list>
+
+    <div class="topbar">
+      <img static src="/common/images/hd.png" style="position: absolute; left: 0px; top: 0px; width: 336px; height: 84px;" />
+      <img static src="/common/images/back.png" @click="goBack" style="position: absolute; left: 6px; top: 6px; width: 72px; height: 72px;" />
+      <text style="position: absolute; left: 78px; top: 20px; width: 180px; line-height: 40px; font-size: 28px; font-weight: bold; color: #FFFFFF; text-align: center; lines: 1;">使用说明</text>
+      <text style="position: absolute; left: 78px; top: 56px; width: 180px; line-height: 22px; font-size: 18px; font-weight: bold; color: #5B6B84; text-align: center; lines: 1;">玩法 · 符号 · 覆盖范围</text>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+
+export default {
+  private: {
+    pageAnim: 'page--anim',
+    symbols: [
+      { k: 'w', s: '—', n: '导线', c: '#7A8AA6' },
+      { k: 'r', s: 'R10', n: '定值电阻', c: '#5FE3FF' },
+      { k: 'l', s: 'L10', n: '小灯泡', c: '#FFC94D' },
+      { k: 'e', s: '6V', n: '电源', c: '#FF6B5E' },
+      { k: 's', s: 'S', n: '开关', c: '#69F0AE' },
+      { k: 'a', s: 'A', n: '电流表', c: '#A78BFA' },
+      { k: 'v', s: 'V', n: '电压表', c: '#F472B6' },
+      { k: 'p', s: 'Rp20', n: '滑动变阻器', c: '#4ADE80' },
+      { k: 'm', s: 'M10', n: '电动机', c: '#94A3B8' },
+      { k: 'h', s: 'H20', n: '电热器', c: '#F0A868' }
+    ]
+  },
+
+  onShow() {
+    var self = this
+    this.pageAnim = 'page--back'
+    setTimeout(function () {
+      if (self.$valid) self.pageAnim = ''
+    }, 300)
+  },
+
+  goBack() {
+    router.back()
+  }
+}
+</script>
+
+<style>
+@import '../../common/style.css';
+
+.sym-row {
+  width: 100%;
+  height: 52px;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.sym-box {
+  width: 74px;
+  height: 38px;
+  border-radius: 10px;
+  border-width: 2px;
+  justify-content: center;
+  align-items: center;
+  margin-right: 14px;
+}
+
+.sym-text {
+  font-size: 20px;
+  font-weight: bold;
+  lines: 1;
+}
+
+.sym-name {
+  font-size: 21px;
+  font-weight: bold;
+  color: #C7D2E4;
+  flex: 1;
+  lines: 1;
+}
+</style>

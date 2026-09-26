@@ -1,0 +1,113 @@
+<template>
+  <div class="page {{pageAnim}}">
+
+    <list class="scroll">
+      <list-item type="tip">
+        <div class="chips">
+          <div class="chip {{cur === '' ? 'chip--on' : ''}}" @click="pick('')">
+            <text class="chip-text {{cur === '' ? 'chip-text--on' : ''}}">全部</text>
+          </div>
+          <div class="chip" for="{{groups}}" tid="key" @click="pick($item.key)">
+            <text class="chip-text" style="{{cur === $item.key ? 'color: #FFFFFF;' : ''}}">{{$item.name}}</text>
+          </div>
+        </div>
+      </list-item>
+
+      <list-item class="fx" for="{{list}}" tid="i" type="tip">
+        <text class="fx-name">{{$item.t}}</text>
+        <text class="fx-formula" style="color: {{$item.color}};">{{$item.f}}</text>
+        <text class="fx-desc">{{$item.d}}</text>
+      </list-item>
+
+      <list-item type="footer" style="height: 60px;"></list-item>
+    </list>
+
+    <div class="topbar">
+      <img static src="/common/images/hd.png" style="position: absolute; left: 0px; top: 0px; width: 336px; height: 84px;" />
+      <img static src="/common/images/back.png" @click="goBack" style="position: absolute; left: 6px; top: 6px; width: 72px; height: 72px;" />
+      <text style="position: absolute; left: 78px; top: 20px; width: 180px; line-height: 40px; font-size: 28px; font-weight: bold; color: #FFFFFF; text-align: center; lines: 1;">公式速查</text>
+      <text style="position: absolute; left: 78px; top: 56px; width: 180px; line-height: 22px; font-size: 18px; font-weight: bold; color: #5B6B84; text-align: center; lines: 1;">{{list.length}} 条 · 共 {{allCount}} 条</text>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import { FORMULAS, GROUPS, groupColor } from '../../common/knowledge.js'
+
+export default {
+  private: {
+    pageAnim: 'page--anim',
+    cur: '',
+    groups: GROUPS,
+    list: [],
+    allCount: FORMULAS.length
+  },
+
+  onInit() {
+    this.pick('')
+  },
+
+  onShow() {
+    var self = this
+    this.pageAnim = 'page--back'
+    setTimeout(function () {
+      if (self.$valid) self.pageAnim = ''
+    }, 300)
+  },
+
+  pick(key) {
+    this.cur = key
+    var out = []
+    for (var i = 0; i < FORMULAS.length; i++) {
+      var f = FORMULAS[i]
+      if (key && f.g !== key) continue
+      out.push({ i: i, t: f.t, f: f.f, d: f.d, color: groupColor(f.g) })
+    }
+    this.list = out
+  },
+
+  goBack() {
+    router.back()
+  }
+}
+</script>
+
+<style>
+@import '../../common/style.css';
+
+.chips {
+  width: 100%;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.chip {
+  height: 46px;
+  border-radius: 23px;
+  background-color: #141B2B;
+  border-width: 1px;
+  border-color: #1C2438;
+  justify-content: center;
+  align-items: center;
+  padding: 0 16px;
+  margin: 3px;
+}
+
+.chip--on {
+  background-color: #1B4FD8;
+  border-color: #1B4FD8;
+}
+
+.chip-text {
+  font-size: 21px;
+  font-weight: bold;
+  color: #8C9BB5;
+  lines: 1;
+}
+
+.chip-text--on {
+  color: #FFFFFF;
+}
+</style>

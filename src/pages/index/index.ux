@@ -1,0 +1,81 @@
+<template>
+  <div class="page {{pageAnim}}">
+
+    <!-- 顶部栏 -->
+    <div class="topbar">
+      <img static src="/common/images/hd.png" style="position: absolute; left: 0px; top: 0px; width: 336px; height: 92px;" />
+      <text style="position: absolute; left: 20px; top: 22px; width: 180px; line-height: 40px; font-size: 30px; font-weight: bold; color: #FFFFFF; lines: 1;">电学工具箱</text>
+      <text style="position: absolute; left: 20px; top: 58px; width: 200px; line-height: 22px; font-size: 19px; font-weight: bold; color: #5B6B84; lines: 1;">九年级 · 覆盖全部电学考点</text>
+      <img static src="/common/images/more.png" @click="goHelp" style="position: absolute; left: 258px; top: 10px; width: 64px; height: 64px;" />
+    </div>
+
+    <!-- 工具宫格 -->
+    <div class="grid">
+      <div class="grid-cell" for="{{tools}}" tid="id" @click="open($item)">
+        <div class="grid-icon" style="background-color: {{$item.bg}}; border-color: {{$item.bg}};">
+          <text class="grid-icon-text">{{$item.icon}}</text>
+        </div>
+        <text class="grid-name">{{$item.name}}</text>
+      </div>
+    </div>
+
+    <div if="{{toast}}" class="toast">
+      <text class="toast-text">{{toast}}</text>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+
+export default {
+  private: {
+    pageAnim: 'page--anim',
+    toast: '',
+    __toastTimer: null,
+    tools: [
+      { id: 'circuit', name: '线路图', icon: '网', bg: '#0E2A5C', uri: '/pages/circuit', sub: '画线路 · 求电流电压' },
+      { id: 'calc', name: '万能计算', icon: '算', bg: '#0B3A6B', uri: '/pages/calc', sub: '欧姆 · 串并 · 功率' },
+      { id: 'dynamic', name: '动态电路', icon: '动', bg: '#2A1B4D', uri: '/pages/dynamic', sub: '滑变 · 开关 · 示数' },
+      { id: 'voltammetry', name: '伏安法', icon: '伏', bg: '#0B3B33', uri: '/pages/voltammetry', sub: '内接外接 · 误差' },
+      { id: 'formulas', name: '公式速查', icon: '式', bg: '#3A2410', uri: '/pages/formulas', sub: '7 大分类 40 条' },
+      { id: 'traps', name: '易错点', icon: '错', bg: '#3D1620', uri: '/pages/traps', sub: '8 个高频陷阱' },
+      { id: 'ohmOnly', name: '欧姆定律', icon: '欧', bg: '#123A2E', uri: '/pages/calc?tab=ohm', sub: 'I = U / R 三量互求' },
+      { id: 'help', name: '使用说明', icon: '?', bg: '#1C2438', uri: '/pages/help', sub: '玩法与符号对照' }
+    ]
+  },
+
+  onInit() {
+    console.log('电学工具箱 tools =', this.tools.length)
+  },
+
+  onShow() {
+    // 从子页面返回时重放入场动画
+    this.pageAnim = ''
+    var self = this
+    setTimeout(function () {
+      if (self.$valid) self.pageAnim = 'page--anim'
+    }, 10)
+  },
+
+  open(item) {
+    if (item.id === 'help') {
+      this.goHelp()
+      return
+    }
+    router.push({ uri: item.uri })
+  },
+
+  goHelp() {
+    router.push({ uri: '/pages/help' })
+  }
+}
+</script>
+
+<style>
+@import '../../common/style.css';
+
+.page {
+  flex-direction: column;
+}
+</style>

@@ -1,0 +1,636 @@
+<template>
+  <div class="page {{pageAnim}}">
+
+    <list class="scroll" id="calcList">
+      <!-- 题型选择 -->
+      <list-item type="tip">
+        <div class="seg" style="margin-bottom: 8px;">
+          <div class="seg-item" for="{{tabs}}" tid="key" @click="switchTab($item)">
+            <text class="seg-text {{tab === $item.key ? 'seg-text--on' : ''}}">{{$item.short}}</text>
+          </div>
+        </div>
+      </list-item>
+
+      <list-item type="tip">
+        <scroll class="panel">
+          <!-- 欧姆定律 -->
+          <div if="{{tab === 'ohm'}}">
+            <div class="field" for="{{ohmFields}}" tid="key"
+              ontouchstart="press('f' + $item.key)" ontouchend="release()"
+              @click="openPad($item.key)">
+              <text class="field-label">{{$item.label}}</text>
+              <text class="field-value {{vals[$item.key] === '' ? 'field-value--empty' : ''}}">{{disp($item.key)}}</text>
+              <text class="field-unit">{{$item.unit}}</text>
+            </div>
+            <div class="field" @click="cycleFind">
+              <text class="field-label">要求解</text>
+              <text class="field-value" style="color: #FFC94D;">{{findText}}</text>
+            </div>
+            <div class="btn" @click="computeOhm" style="margin-top: 4px;">
+              <text class="btn-text">计算</text>
+            </div>
+            <div class="result-hero" if="{{ohmOut.ok}}" style="margin-top: 10px;">
+              <text class="result-hero-label">结果</text>
+              <text class="result-hero-value">{{ohmOut.text}}</text>
+              <text class="step" for="{{ohmOut.steps}}" tid="id">{{$item}}</text>
+            </div>
+            <text class="note" if="{{ohmOut.err}}">{{ohmOut.err}}</text>
+          </div>
+
+          <!-- 串并联 -->
+          <div if="{{tab === 'conn'}}">
+            <div class="seg" style="margin-bottom: 10px;">
+              <div class="seg-item {{connMode === 'series' ? 'seg-item--on' : ''}}" @click="setConn('series')">
+                <text class="seg-text {{connMode === 'series' ? 'seg-text--on' : ''}}">串联</text>
+              </div>
+              <div class="seg-item {{connMode === 'parallel' ? 'seg-item--on' : ''}}" @click="setConn('parallel')">
+                <text class="seg-text {{connMode === 'parallel' ? 'seg-text--on' : ''}}">并联</text>
+              </div>
+            </div>
+            <div class="field" for="{{connRows}}" tid="id" @click="openPad('r' + $item.idx)">
+              <text class="field-label">{{$item.label}}</text>
+              <text class="field-value">{{disp('r' + $item.idx)}}</text>
+              <text class="field-unit">Ω</text>
+            </div>
+            <div class="field" @click="openPad('connU')">
+              <text class="field-label">总电压 U</text>
+              <text class="field-value">{{disp('connU')}}</text>
+              <text class="field-unit">V</text>
+            </div>
+            <div class="btn" @click="computeConn" style="margin-top: 4px;">
+              <text class="btn-text">计算各电阻量</text>
+            </div>
+            <div class="card card--flat" if="{{connOut.rows.length}}" style="margin-top: 10px;">
+              <div class="kv"><text class="kv-k">总电阻 R</text><text class="kv-v kv-v--hi">{{connOut.R}}</text></div>
+              <div class="kv" if="{{connMode === 'series'}}">
+                <text class="kv-k">电路电流 I</text><text class="kv-v">{{connOut.I}}</text>
+              </div>
+              <div class="kv" if="{{connMode === 'parallel'}}">
+                <text class="kv-k">干路电流 I</text><text class="kv-v">{{connOut.I}}</text>
+              </div>
+              <div class="kv"><text class="kv-k">总功率 P</text><text class="kv-v">{{connOut.P}}</text></div>
+              <text class="card-sub" style="margin-top: 8px;">各电阻分压 / 分流</text>
+              <div class="kv" for="{{connOut.rows}}" tid="id">
+                <text class="kv-k">{{$item.name}}</text>
+                <text class="kv-v">{{$item.U}} / {{$item.I}}</text>
+              </div>
+            </div>
+          </div>
+
+          <!-- 电功率 -->
+          <div if="{{tab === 'power'}}">
+            <div class="field" @click="openPad('pU')">
+              <text class="field-label">电压 U</text>
+              <text class="field-value">{{disp('pU')}}</text>
+              <text class="field-unit">V</text>
+            </div>
+            <div class="field" @click="openPad('pI')">
+              <text class="field-label">电流 I</text>
+              <text class="field-value">{{disp('pI')}}</text>
+              <text class="field-unit">A</text>
+            </div>
+            <div class="field" @click="openPad('pR')">
+              <text class="field-label">电阻 R</text>
+              <text class="field-value">{{disp('pR')}}</text>
+              <text class="field-unit">Ω</text>
+            </div>
+            <div class="field" @click="openPad('pt')">
+              <text class="field-label">通电时间 t</text>
+              <text class="field-value">{{disp('pt')}}</text>
+              <text class="field-unit">s</text>
+            </div>
+            <div class="seg" style="margin-top: 4px;">
+              <div class="seg-item {{pFind === 'P' ? 'seg-item--on' : ''}}" @click="setPFind('P')">
+                <text class="seg-text {{pFind === 'P' ? 'seg-text--on' : ''}}">P=UI</text>
+              </div>
+              <div class="seg-item {{pFind === 'P2' ? 'seg-item--on' : ''}}" @click="setPFind('P2')">
+                <text class="seg-text {{pFind === 'P2' ? 'seg-text--on' : ''}}">P=I²R</text>
+              </div>
+              <div class="seg-item {{pFind === 'P3' ? 'seg-item--on' : ''}}" @click="setPFind('P3')">
+                <text class="seg-text {{pFind === 'P3' ? 'seg-text--on' : ''}}">P=U²/R</text>
+              </div>
+            </div>
+            <div class="btn" @click="computePower" style="margin-top: 8px;">
+              <text class="btn-text">计算</text>
+            </div>
+            <div class="result-hero" if="{{pOut.ok}}" style="margin-top: 10px;">
+              <text class="result-hero-label">电功率 P</text>
+              <text class="result-hero-value">{{pOut.P}}</text>
+              <text class="step" for="{{pOut.steps}}" tid="id">{{$item}}</text>
+              <text class="step" if="{{pOut.W}}">消耗电能 W = {{pOut.W}}</text>
+            </div>
+            <text class="note" if="{{pOut.err}}">{{pOut.err}}</text>
+          </div>
+
+          <!-- 额定与实际 -->
+          <div if="{{tab === 'rated'}}">
+            <div class="field" @click="openPad('Ue')">
+              <text class="field-label">额定电压 U额</text>
+              <text class="field-value">{{disp('Ue')}}</text>
+              <text class="field-unit">V</text>
+            </div>
+            <div class="field" @click="openPad('Pe')">
+              <text class="field-label">额定功率 P额</text>
+              <text class="field-value">{{disp('Pe')}}</text>
+              <text class="field-unit">W</text>
+            </div>
+            <div class="field" @click="openPad('Ur')">
+              <text class="field-label">实际电压 U实</text>
+              <text class="field-value">{{disp('Ur')}}</text>
+              <text class="field-unit">V</text>
+            </div>
+            <div class="btn" @click="computeRated" style="margin-top: 4px;">
+              <text class="btn-text">计算实际功率与亮度</text>
+            </div>
+            <div class="result-hero" if="{{rOut.ok}}" style="margin-top: 10px;">
+              <text class="result-hero-label">实际功率 P实</text>
+              <text class="result-hero-value">{{rOut.P}}</text>
+              <text class="step">灯丝电阻 R = U额²/P额 = {{rOut.R}}</text>
+              <text class="step">实际电流 I = U实/R = {{rOut.I}}</text>
+              <text class="step">P实/P额 = {{rOut.ratio}} → {{rOut.bright}}</text>
+            </div>
+          </div>
+
+          <!-- 电能与电热 -->
+          <div if="{{tab === 'energy'}}">
+            <div class="field" @click="openPad('eP')">
+              <text class="field-label">功率 P</text>
+              <text class="field-value">{{disp('eP')}}</text>
+              <text class="field-unit">W</text>
+            </div>
+            <div class="field" @click="openPad('et')">
+              <text class="field-label">时间 t</text>
+              <text class="field-value">{{disp('et')}}</text>
+              <text class="field-unit">s</text>
+            </div>
+            <div class="field" @click="openPad('eW')">
+              <text class="field-label">电能 W</text>
+              <text class="field-value">{{disp('eW')}}</text>
+              <text class="field-unit">J</text>
+            </div>
+            <div class="field" @click="openPad('eI')">
+              <text class="field-label">电流 I</text>
+              <text class="field-value">{{disp('eI')}}</text>
+              <text class="field-unit">A</text>
+            </div>
+            <div class="field" @click="openPad('eR')">
+              <text class="field-label">电阻 R</text>
+              <text class="field-value">{{disp('eR')}}</text>
+              <text class="field-unit">Ω</text>
+            </div>
+            <div class="seg" style="margin-top: 4px;">
+              <div class="seg-item {{eFind === 'W' ? 'seg-item--on' : ''}}" @click="setEFind('W')">
+                <text class="seg-text {{eFind === 'W' ? 'seg-text--on' : ''}}">W=Pt</text>
+              </div>
+              <div class="seg-item {{eFind === 't' ? 'seg-item--on' : ''}}" @click="setEFind('t')">
+                <text class="seg-text {{eFind === 't' ? 'seg-text--on' : ''}}">求时间</text>
+              </div>
+              <div class="seg-item {{eFind === 'P' ? 'seg-item--on' : ''}}" @click="setEFind('P')">
+                <text class="seg-text {{eFind === 'P' ? 'seg-text--on' : ''}}">求功率</text>
+              </div>
+              <div class="seg-item {{eFind === 'Q' ? 'seg-item--on' : ''}}" @click="setEFind('Q')">
+                <text class="seg-text {{eFind === 'Q' ? 'seg-text--on' : ''}}">Q=I²Rt</text>
+              </div>
+            </div>
+            <div class="btn" @click="computeEnergy" style="margin-top: 8px;">
+              <text class="btn-text">计算</text>
+            </div>
+            <div class="result-hero" if="{{eOut.ok}}" style="margin-top: 10px;">
+              <text class="result-hero-label">{{eOut.label}}</text>
+              <text class="result-hero-value">{{eOut.value}}</text>
+              <text class="step" for="{{eOut.steps}}" tid="id">{{$item}}</text>
+              <text class="step" if="{{eOut.kWh}}">合 {{eOut.kWh}} 度电（1 度 = 3.6×10⁶ J）</text>
+            </div>
+            <text class="note" if="{{eOut.err}}">{{eOut.err}}</text>
+          </div>
+
+          <!-- 单位换算 -->
+          <div if="{{tab === 'unit'}}">
+            <div class="field" @click="openPad('uv')">
+              <text class="field-label">数值</text>
+              <text class="field-value">{{disp('uv')}}</text>
+              <text class="field-unit"></text>
+            </div>
+            <div class="field" @click="cycleUnit">
+              <text class="field-label">物理量</text>
+              <text class="field-value" style="color: #FFC94D;">{{unitQtyName}}</text>
+            </div>
+            <div class="field" @click="cycleFrom">
+              <text class="field-label">从</text>
+              <text class="field-value" style="color: #5FE3FF;">{{unitFrom}}</text>
+            </div>
+            <div class="field" @click="cycleTo">
+              <text class="field-label">换算为</text>
+              <text class="field-value" style="color: #5FE3FF;">{{unitTo}}</text>
+            </div>
+            <div class="result-hero" style="margin-top: 10px;">
+              <text class="result-hero-label">换算结果</text>
+              <text class="result-hero-value">{{unitResult}}</text>
+              <text class="step">{{disp('uv')}} {{unitFrom}} = {{unitResult}} {{unitTo}}</text>
+            </div>
+          </div>
+        </scroll>
+      </list-item>
+    </list>
+
+    <div class="topbar">
+      <img static src="/common/images/hd.png" style="position: absolute; left: 0px; top: 0px; width: 336px; height: 84px;" />
+      <img static src="/common/images/back.png" @click="goBack" style="position: absolute; left: 6px; top: 6px; width: 72px; height: 72px;" />
+      <text style="position: absolute; left: 78px; top: 20px; width: 180px; line-height: 40px; font-size: 28px; font-weight: bold; color: #FFFFFF; text-align: center; lines: 1;">万能计算</text>
+      <text style="position: absolute; left: 78px; top: 56px; width: 180px; line-height: 22px; font-size: 18px; font-weight: bold; color: #5B6B84; text-align: center; lines: 1;">{{tabName}}</text>
+    </div>
+
+    <!-- 数字键盘 -->
+    <div if="{{padOpen}}" class="mask"></div>
+    <div if="{{padOpen}}" class="keypad">
+      <div class="keypad-head">
+        <text class="keypad-title">{{padTitle}}</text>
+        <text class="keypad-title" style="color: #5FE3FF;">{{buffer}}</text>
+      </div>
+      <div class="keypad-body">
+        <div class="key-row">
+          <div class="key" for="{{row1}}" tid="k" @click="key($item)"><text class="key-text">{{$item}}</text></div>
+        </div>
+        <div class="key-row">
+          <div class="key" for="{{row2}}" tid="k" @click="key($item)"><text class="key-text">{{$item}}</text></div>
+        </div>
+        <div class="key-row">
+          <div class="key" for="{{row3}}" tid="k" @click="key($item)"><text class="key-text">{{$item}}</text></div>
+        </div>
+        <div class="key-row">
+          <div class="key key--fn" @click="key('C')"><text class="key-text key-text--fn">清空</text></div>
+          <div class="key" @click="key('0')"><text class="key-text">0</text></div>
+          <div class="key key--del" @click="key('<')"><text class="key-text">⌫</text></div>
+        </div>
+      </div>
+      <div class="btn btn--ok" style="height: 54px; margin-top: 6px;" @click="confirmPad">
+        <text class="btn-text">确定</text>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import numpad from '../../common/numpad.js'
+import * as phy from '../../common/physics.js'
+import { unitList, convert } from '../../common/units.js'
+
+export default {
+  private: {
+    pageAnim: 'page--anim',
+    tab: 'ohm',
+    tabs: [
+      { key: 'ohm', short: '欧姆', name: '欧姆定律 · 三量互求' },
+      { key: 'conn', short: '串并', name: '串联 / 并联电路' },
+      { key: 'power', short: '功率', name: '电功率三种表达式' },
+      { key: 'rated', short: '额定', name: '额定功率与实际功率' },
+      { key: 'energy', short: '电能', name: '电能 · 电热 · 焦耳定律' },
+      { key: 'unit', short: '换算', name: '电学单位换算' }
+    ],
+    tabName: '欧姆定律 · 三量互求',
+    vals: {},
+    find: 'I',
+    findText: '电流 I',
+    connMode: 'series',
+    connN: 2,
+    pFind: 'P',
+    eFind: 'W',
+    padOpen: false,
+    padKey: '',
+    padTitle: '',
+    buffer: '0',
+    pressed: '',
+    row1: ['1', '2', '3'],
+    row2: ['4', '5', '6'],
+    row3: ['7', '8', '9'],
+    ohmFields: [
+      { key: 'U', label: '电压 U', unit: 'V' },
+      { key: 'I', label: '电流 I', unit: 'A' },
+      { key: 'R', label: '电阻 R', unit: 'Ω' }
+    ],
+    connRows: [],
+    ohmOut: { ok: false, text: '', steps: [], err: '' },
+    connOut: { rows: [], R: '—', I: '—', P: '—' },
+    pOut: { ok: false, P: '', steps: [], err: '', W: '' },
+    rOut: { ok: false },
+    eOut: { ok: false, label: '', value: '', steps: [], err: '', kWh: '' },
+    unitQty: 'I',
+    unitFromIdx: 0,
+    unitToIdx: 1,
+    unitQtyName: '电流',
+    unitFrom: 'A',
+    unitTo: 'mA',
+    unitResult: '0'
+  },
+
+  onInit() {
+    var d = {
+      U: '6', I: '', R: '10',
+      r0: '10', r1: '20', connU: '6',
+      pU: '6', pI: '', pR: '10', pt: '60',
+      Ue: '3.8', Pe: '0.3', Ur: '3',
+      eP: '1000', et: '1800', eW: '', eI: '10', eR: '',
+      uv: '1'
+    }
+    for (var k in d) this.vals[k] = d[k]
+    this.connN = 2
+    this.buildConnRows()
+    this.syncUnit()
+    this.computeUnit()
+    this.computeOhm()
+  },
+
+  onShow() {
+    var self = this
+    this.pageAnim = 'page--back'
+    setTimeout(function () {
+      if (self.$valid) self.pageAnim = ''
+    }, 300)
+  },
+
+  buildConnRows() {
+    var rows = []
+    for (var i = 0; i < this.connN; i++) {
+      rows.push({ id: 'r' + i, idx: i, label: (i === 0 ? '电阻 R1' : '电阻 R' + (i + 1)) })
+    }
+    this.connRows = rows
+  },
+
+  num(key) {
+    var v = parseFloat(this.vals[key])
+    return isNaN(v) ? 0 : v
+  },
+
+  disp(key) {
+    var v = this.vals[key]
+    if (v === '' || v === undefined) return '未填'
+    var n = parseFloat(v)
+    if (isNaN(n)) return '未填'
+    if (n === 0) return '0'
+    return String(parseFloat(n.toPrecision(5)))
+  },
+
+  switchTab(item) {
+    this.tab = item.key
+    this.tabName = item.name
+  },
+
+  press(id) { this.pressed = id },
+  release() { this.pressed = '' },
+
+  // ---- 键盘 ----
+  openPad(key) {
+    this.padKey = key
+    this.padOpen = true
+    var v = this.vals[key]
+    this.buffer = (v === '' || v === undefined) ? '0' : v
+    var label = key
+    for (var i = 0; i < this.ohmFields.length; i++) {
+      if (this.ohmFields[i].key === key) label = this.ohmFields[i].label
+    }
+    this.padTitle = label
+  },
+
+  key(k) {
+    this.buffer = numpad.press({ buffer: this.buffer }, k)
+  },
+
+  confirmPad() {
+    var v = numpad.confirm({ buffer: this.buffer })
+    var key = this.padKey
+    this.vals[key] = String(v)
+    this.padOpen = false
+    this.buffer = '0'
+    if (key === 'U' || key === 'I' || key === 'R') this.computeOhm()
+    else if (key === 'pU' || key === 'pI' || key === 'pR' || key === 'pt') this.computePower()
+    else if (key === 'Ue' || key === 'Pe' || key === 'Ur') this.computeRated()
+    else if (key === 'eP' || key === 'et' || key === 'eW' || key === 'eI' || key === 'eR') this.computeEnergy()
+    else if (key === 'uv') this.computeUnit()
+    else if (key === 'connU' || key.indexOf('r') === 0) this.computeConn()
+  },
+
+  cycleFind() {
+    var order = ['I', 'U', 'R']
+    var idx = order.indexOf(this.find)
+    this.find = order[(idx + 1) % 3]
+    this.findText = this.find === 'I' ? '电流 I' : (this.find === 'U' ? '电压 U' : '电阻 R')
+    this.computeOhm()
+  },
+
+  // ---- 欧姆定律 ----
+  computeOhm() {
+    var U = this.num('U')
+    var I = this.num('I')
+    var R = this.num('R')
+    var r = phy.ohm({ U: U, I: I, R: R, find: this.find })
+    if (!r.ok) {
+      this.ohmOut = { ok: false, text: '', steps: [], err: r.err }
+      return
+    }
+    var text = ''
+    if (this.find === 'I') text = fmtI(r.I)
+    else if (this.find === 'U') text = fmtU(r.U)
+    else text = fmtR(r.R)
+    this.ohmOut = { ok: true, text: text, steps: r.steps, err: '' }
+  },
+
+  // ---- 串并联 ----
+  setConn(m) {
+    this.connMode = m
+    this.computeConn()
+  },
+
+  computeConn() {
+    var list = []
+    for (var i = 0; i < this.connN; i++) list.push(this.num('r' + i))
+    var U = this.num('connU')
+    var r
+    if (this.connMode === 'series') {
+      r = phy.series(list, U)
+    } else {
+      r = phy.parallel(list, U)
+    }
+    var rows = []
+    for (var j = 0; j < r.per.length; j++) {
+      rows.push({
+        id: j,
+        name: 'R' + (j + 1) + ' = ' + fmtR(r.per[j].R),
+        U: fmtU(r.per[j].U),
+        I: fmtI(r.per[j].I)
+      })
+    }
+    this.connOut = {
+      rows: rows,
+      R: fmtR(r.R),
+      I: fmtI(this.connMode === 'series' ? r.I : r.Itot),
+      P: fmtP(r.totalP)
+    }
+  },
+
+  setPFind(f) {
+    this.pFind = f
+    this.computePower()
+  },
+
+  computePower() {
+    var r = phy.power({
+      U: this.num('pU'), I: this.num('pI'), R: this.num('pR'),
+      find: this.pFind, t: this.num('pt')
+    })
+    if (!r.ok) {
+      this.pOut = { ok: false, P: '', steps: [], err: r.err, W: '' }
+      return
+    }
+    this.pOut = { ok: true, P: fmtP(r.P), steps: r.steps, err: '', W: r.W ? fmtE(r.W) : '' }
+  },
+
+  computeRated() {
+    var r = phy.rated({
+      Ue: this.num('Ue'), Pe: this.num('Pe'),
+      U: this.num('Ur')
+    })
+    this.rOut = {
+      ok: true,
+      P: fmtP(r.P),
+      R: fmtR(r.R),
+      I: fmtI(r.I),
+      ratio: String(parseFloat(r.ratio.toPrecision(3))),
+      bright: r.bright
+    }
+  },
+
+  setEFind(f) {
+    this.eFind = f
+    this.computeEnergy()
+  },
+
+  computeEnergy() {
+    if (this.eFind === 'Q') {
+      var q = phy.joule({ I: this.num('eI'), R: this.num('eR'), t: this.num('et') })
+      this.eOut = {
+        ok: true, label: '产生的热量 Q',
+        value: fmtE(q.Q), steps: q.steps, err: '', kWh: ''
+      }
+      return
+    }
+    var r = phy.energy({
+      P: this.num('eP'), t: this.num('et'),
+      U: this.num('eW'), find: this.eFind
+    })
+    if (!r.ok) {
+      this.eOut = { ok: false, label: '', value: '', steps: [], err: r.err, kWh: '' }
+      return
+    }
+    var label = ''
+    var value = ''
+    if (this.eFind === 'W') { label = '消耗电能 W'; value = fmtE(r.W) }
+    else if (this.eFind === 't') { label = '通电时间 t'; value = fmtT(r.t) }
+    else { label = '电功率 P'; value = fmtP(r.P) }
+    this.eOut = { ok: true, label: label, value: value, steps: r.steps, err: '', kWh: r.kWh ? String(parseFloat(r.kWh.toPrecision(4))) : '' }
+  },
+
+  // ---- 单位换算 ----
+  syncUnit() {
+    var list = unitList(this.unitQty)
+    this.unitFrom = list[this.unitFromIdx].label
+    this.unitTo = list[this.unitToIdx].label
+    var names = { I: '电流', U: '电压', R: '电阻', P: '功率', E: '电能', t: '时间' }
+    this.unitQtyName = names[this.unitQty]
+  },
+
+  cycleUnit() {
+    var order = ['I', 'U', 'R', 'P', 'E', 't']
+    var idx = order.indexOf(this.unitQty)
+    this.unitQty = order[(idx + 1) % order.length]
+    this.unitFromIdx = 0
+    this.unitToIdx = 1
+    this.syncUnit()
+    this.computeUnit()
+  },
+
+  cycleFrom() {
+    var list = unitList(this.unitQty)
+    this.unitFromIdx = (this.unitFromIdx + 1) % list.length
+    this.syncUnit()
+    this.computeUnit()
+  },
+
+  cycleTo() {
+    var list = unitList(this.unitQty)
+    this.unitToIdx = (this.unitToIdx + 1) % list.length
+    this.syncUnit()
+    this.computeUnit()
+  },
+
+  computeUnit() {
+    var v = this.num('uv')
+    var out = convert(this.unitQty, v, this.unitFrom, this.unitTo)
+    this.unitResult = String(parseFloat(out.toPrecision(6)))
+  },
+
+  goBack() {
+    router.back()
+  }
+}
+
+function sig(n) { return String(parseFloat(n.toPrecision(4))) }
+function fmtI(x) {
+  var a = Math.abs(x)
+  if (a < 1e-9) return '0 A'
+  if (a >= 1) return sig(x) + ' A'
+  if (a >= 1e-3) return sig(x * 1000) + ' mA'
+  return sig(x * 1e6) + ' μA'
+}
+function fmtU(x) {
+  var a = Math.abs(x)
+  if (a < 1e-9) return '0 V'
+  if (a >= 1) return sig(x) + ' V'
+  if (a >= 1e-3) return sig(x * 1000) + ' mV'
+  return sig(x * 1e6) + ' μV'
+}
+function fmtR(x) {
+  if (!isFinite(x)) return '∞'
+  var a = Math.abs(x)
+  if (a >= 1e6) return sig(x / 1e6) + ' MΩ'
+  if (a >= 1e3) return sig(x / 1e3) + ' kΩ'
+  return sig(x) + ' Ω'
+}
+function fmtP(x) {
+  var a = Math.abs(x)
+  if (a < 1e-9) return '0 W'
+  if (a >= 1) return sig(x) + ' W'
+  if (a >= 1e-3) return sig(x * 1000) + ' mW'
+  return sig(x * 1e6) + ' μW'
+}
+function fmtE(x) {
+  var a = Math.abs(x)
+  if (a < 1e-9) return '0 J'
+  if (a >= 1e6) return sig(x / 1e6) + ' MJ'
+  if (a >= 1e3) return sig(x / 1e3) + ' kJ'
+  return sig(x) + ' J'
+}
+function fmtT(x) {
+  if (x >= 3600) return sig(x / 3600) + ' h'
+  if (x >= 60) return sig(x / 60) + ' min'
+  return sig(x) + ' s'
+}
+</script>
+
+<style>
+@import '../../common/style.css';
+
+.panel {
+  width: 100%;
+  height: 330px;
+  flex-direction: column;
+}
+
+.note {
+  font-size: 20px;
+  font-weight: bold;
+  color: #FF8A80;
+  margin-top: 8px;
+  line-height: 28px;
+}
+</style>

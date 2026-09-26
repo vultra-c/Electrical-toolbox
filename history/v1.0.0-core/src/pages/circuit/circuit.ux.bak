@@ -1,0 +1,717 @@
+<template>
+  <div class="page {{pageAnim}}">
+
+    <!-- 画布 -->
+    <div class="canvas">
+      <!-- 节点 -->
+      <div for="{{nodes}}" tid="id" class="node" style="{{$item.style}}"></div>
+      <!-- 格边（可点击区域） -->
+      <div for="{{edges}}" tid="id" class="slot" style="{{$item.slot}}"
+        ontouchstart="press($item.id)" ontouchend="release()" @click="tapEdge($item.id)">
+        <div if="{{$item.wire}}" class="wire {{$item.dir}}" style="{{$item.wire}}"></div>
+        <div if="{{$item.box}}" class="cbox cbox--{{$item.kind}}" style="{{$item.box}}">
+          <text class="cbox-text" style="{{$item.color}}">{{$item.label}}</text>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部状态条 -->
+    <div class="statusbar">
+      <div class="status-row">
+        <text class="status-main">{{statusText}}</text>
+        <text class="status-sub">{{statusSub}}</text>
+      </div>
+      <div class="status-row2">
+        <div class="sbtn" @click="openPresets">
+          <text class="sbtn-text">示例电路</text>
+        </div>
+        <div class="sbtn" @click="clearAll">
+          <text class="sbtn-text sbtn-text--dim">清空</text>
+        </div>
+        <div class="sbtn sbtn--go" @click="doSolve">
+          <text class="sbtn-text">求解</text>
+        </div>
+      </div>
+    </div>
+
+    <!-- 顶部栏 -->
+    <div class="topbar">
+      <img static src="/common/images/hd.png" style="position: absolute; left: 0px; top: 0px; width: 336px; height: 84px;" />
+      <img static src="/common/images/back.png" @click="goBack" style="position: absolute; left: 6px; top: 6px; width: 72px; height: 72px;" />
+      <text style="position: absolute; left: 78px; top: 20px; width: 180px; line-height: 40px; font-size: 28px; font-weight: bold; color: #FFFFFF; text-align: center; lines: 1; text-overflow: ellipsis;">线路图实验室</text>
+      <text style="position: absolute; left: 78px; top: 56px; width: 180px; line-height: 22px; font-size: 18px; font-weight: bold; color: #5B6B84; text-align: center; lines: 1;">点格边放元件 · 再点求解</text>
+    </div>
+
+    <!-- 元件选择面板 -->
+    <div if="{{sheet === 'kind'}}" class="mask" @click="closeSheet"></div>
+    <div if="{{sheet === 'kind'}}" class="sheet">
+      <div class="sheet-handle"><div class="sheet-handle-bar"></div></div>
+      <text class="sheet-title">选择元件</text>
+      <div class="kind-grid">
+        <div class="kind-cell" for="{{kinds}}" tid="kind" @click="pickKind($item)">
+          <text class="kind-symbol" style="color: {{$item.color}};">{{$item.symbol}}</text>
+          <text class="kind-name">{{$item.name}}</text>
+        </div>
+      </div>
+    </div>
+
+    <!-- 已放置元件操作面板 -->
+    <div if="{{sheet === 'act'}}" class="mask" @click="closeSheet"></div>
+    <div if="{{sheet === 'act'}}" class="sheet">
+      <div class="sheet-handle"><div class="sheet-handle-bar"></div></div>
+      <text class="sheet-title">{{actTitle}}</text>
+      <div class="sheet-item" @click="editValue()">
+        <text class="sheet-item-text">修改数值</text>
+        <text class="sheet-item-hint">{{actValueText}}</text>
+      </div>
+      <div if="{{actKind === 'switch'}}" class="sheet-item" @click="toggleSwitch()">
+        <text class="sheet-item-text">{{actClosed ? '断开开关' : '闭合开关'}}</text>
+        <text class="sheet-item-hint">{{actClosed ? '闭合' : '断开'}}</text>
+      </div>
+      <div if="{{actKind === 'battery'}}" class="sheet-item" @click="editRin()">
+        <text class="sheet-item-text">电源内阻</text>
+        <text class="sheet-item-hint">{{actRinText}}</text>
+      </div>
+      <div class="sheet-item" @click="openKindsForReplace()">
+        <text class="sheet-item-text">替换为其它元件</text>
+      </div>
+      <div class="sheet-item" @click="removeEl()">
+        <text class="sheet-item-text" style="color: #FF8A80;">删除该元件</text>
+      </div>
+    </div>
+
+    <!-- 示例电路面板 -->
+    <div if="{{sheet === 'preset'}}" class="mask" @click="closeSheet"></div>
+    <div if="{{sheet === 'preset'}}" class="sheet">
+      <div class="sheet-handle"><div class="sheet-handle-bar"></div></div>
+      <text class="sheet-title">教科书典型电路</text>
+      <div class="sheet-item" for="{{presets}}" tid="id" @click="loadPreset($item)">
+        <div style="flex-direction: column; flex: 1;">
+          <text class="sheet-item-text">{{$item.name}}</text>
+          <text class="sheet-item-hint">{{$item.desc}}</text>
+        </div>
+      </div>
+    </div>
+
+    <!-- 数字键盘 -->
+    <div if="{{sheet === 'pad'}}" class="mask"></div>
+    <div if="{{sheet === 'pad'}}" class="keypad">
+      <div class="keypad-head">
+        <text class="keypad-title">{{padTitle}}</text>
+        <text class="keypad-title" style="color: #5FE3FF;">{{buffer}}</text>
+      </div>
+      <div class="keypad-body">
+        <div class="key-row">
+          <div class="key" for="{{row1}}" tid="k" @click="key($item)"><text class="key-text">{{$item}}</text></div>
+        </div>
+        <div class="key-row">
+          <div class="key" for="{{row2}}" tid="k" @click="key($item)"><text class="key-text">{{$item}}</text></div>
+        </div>
+        <div class="key-row">
+          <div class="key" for="{{row3}}" tid="k" @click="key($item)"><text class="key-text">{{$item}}</text></div>
+        </div>
+        <div class="key-row">
+          <div class="key key--fn" @click="key('C')"><text class="key-text key-text--fn">清空</text></div>
+          <div class="key" @click="key('0')"><text class="key-text">0</text></div>
+          <div class="key key--del" @click="key('<')"><text class="key-text">⌫</text></div>
+        </div>
+      </div>
+      <div class="btn btn--ok" style="height: 54px; margin-top: 6px;" @click="confirmPad">
+        <text class="btn-text">确定</text>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import { solve } from '../../common/circuitEngine.js'
+import draft, { PRESETS, expand } from '../../common/draft.js'
+import numpad from '../../common/numpad.js'
+import db from '../../common/storage.js'
+
+var COLS = 4
+var ROWS = 4
+var X0 = 63
+var DX = 70
+var Y0 = 26
+var DY = 64
+
+var KIND_STYLE = {
+  wire: { color: '#7A8AA6', symbol: '—', name: '导线' },
+  resistor: { color: '#5FE3FF', symbol: 'R', name: '定值电阻' },
+  lamp: { color: '#FFC94D', symbol: 'L', name: '小灯泡' },
+  battery: { color: '#FF6B5E', symbol: 'E', name: '电源' },
+  switch: { color: '#69F0AE', symbol: 'S', name: '开关' },
+  ammeter: { color: '#A78BFA', symbol: 'A', name: '电流表' },
+  voltmeter: { color: '#F472B6', symbol: 'V', name: '电压表' },
+  rheostat: { color: '#4ADE80', symbol: 'Rp', name: '滑动变阻器' },
+  motor: { color: '#94A3B8', symbol: 'M', name: '电动机' },
+  heater: { color: '#F0A868', symbol: 'H', name: '电热器' }
+}
+
+var KIND_DEF = {
+  wire: 0, resistor: 10, lamp: 10, battery: 3, switch: 0,
+  ammeter: 0, voltmeter: 0, rheostat: 20, motor: 10, heater: 20
+}
+
+export default {
+  private: {
+    pageAnim: 'page--anim',
+    elements: [],
+    nodes: [],
+    edges: [],
+    statusText: '还没有元件',
+    statusSub: '点任意一格放元件',
+    sheet: '',           // '' | 'kind' | 'act' | 'preset' | 'pad'
+    selId: '',
+    actTitle: '',
+    actKind: '',
+    actClosed: true,
+    actRinText: '0 Ω',
+    actValueText: '',
+    replaceMode: false,
+    buffer: '0',
+    padTitle: '',
+    padTarget: '',       // 'value' | 'rin'
+    pressedId: '',
+    kinds: [],
+    presets: PRESETS,
+    row1: ['1', '2', '3'],
+    row2: ['4', '5', '6'],
+    row3: ['7', '8', '9']
+  },
+
+  onInit() {
+    var self = this
+    this.buildKinds()
+    this.buildGrid()
+    db.get('circuit', null).then(function (d) {
+      if (!self.$valid) return
+      if (d && d.els && d.els.length) {
+        self.elements = d.els
+        self.render()
+        self.liveSolve()
+      } else {
+        // 默认给一个串联电路，一进来就有东西看
+        self.loadPresetById('series')
+      }
+    })
+  },
+
+  onShow() {
+    var self = this
+    this.pageAnim = 'page--back'
+    setTimeout(function () {
+      if (self.$valid) self.pageAnim = ''
+    }, 300)
+  },
+
+  buildKinds() {
+    var out = []
+    var keys = Object.keys(KIND_STYLE)
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i]
+      out.push({
+        kind: k,
+        name: KIND_STYLE[k].name,
+        symbol: KIND_STYLE[k].symbol,
+        color: KIND_STYLE[k].color
+      })
+    }
+    this.kinds = out
+  },
+
+  buildGrid() {
+    var nodes = []
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        nodes.push({
+          id: r * COLS + c,
+          style: 'position: absolute; left: ' + (X0 + c * DX - 4) + 'px; top: ' + (Y0 + r * DY - 4) +
+            'px; width: 8px; height: 8px; border-radius: 4px; background-color: #35415C;'
+        })
+      }
+    }
+    this.nodes = nodes
+    this.render()
+  },
+
+  // ---- 把 elements 映射成可渲染的格边 ----
+  render() {
+    var map = {}
+    for (var i = 0; i < this.elements.length; i++) {
+      var e = this.elements[i]
+      map[e.dir + '-' + e.r + '-' + e.c] = e
+    }
+    var edges = []
+    var r
+    var c
+    for (r = 0; r < ROWS; r++) {
+      for (c = 0; c < COLS - 1; c++) {
+        edges.push(this.makeEdge('h', r, c, map['h-' + r + '-' + c]))
+      }
+    }
+    for (r = 0; r < ROWS - 1; r++) {
+      for (c = 0; c < COLS; c++) {
+        edges.push(this.makeEdge('v', r, c, map['v-' + r + '-' + c]))
+      }
+    }
+    this.edges = edges
+  },
+
+  makeEdge(dir, r, c, e) {
+    var mx
+    var my
+    if (dir === 'h') {
+      mx = X0 + c * DX + DX / 2
+      my = Y0 + r * DY
+    } else {
+      mx = X0 + c * DX
+      my = Y0 + r * DY + DY / 2
+    }
+    // slot 内的相对坐标（slot 以格边中点为中心）
+    var out = {
+      id: dir + '-' + r + '-' + c,
+      dir: dir,
+      kind: '',
+      label: '',
+      color: '#FFFFFF',
+      wire: '',
+      box: '',
+      slot: 'position: absolute; left: ' + (mx - DX / 2) + 'px; top: ' + (my - DY / 2) +
+        'px; width: ' + DX + 'px; height: ' + DY + 'px;'
+    }
+    if (!e) return out
+
+    out.kind = e.kind
+    out.color = KIND_STYLE[e.kind].color
+    out.label = this.labelOf(e)
+    // 先画满导线，再用不透明方块盖住中间，等于两段引线
+    if (dir === 'h') {
+      out.wire = 'left: ' + (DX / 2 - 2) + 'px; top: ' + (DY / 2 - 2) + 'px; width: ' + DX + 'px; height: 4px;'
+    } else {
+      out.wire = 'left: ' + (DX / 2 - 2) + 'px; top: ' + (DY / 2 - 2) + 'px; width: 4px; height: ' + DY + 'px;'
+    }
+    if (e.kind === 'wire') return out
+    var bw = dir === 'h' ? 54 : 34
+    var bh = dir === 'h' ? 32 : 54
+    out.box = 'left: ' + (DX / 2 - bw / 2) + 'px; top: ' + (DY / 2 - bh / 2) + 'px; width: ' + bw +
+      'px; height: ' + bh + 'px;'
+    return out
+  },
+
+  labelOf(e) {
+    var v = e.value
+    var vs = (Math.round(v * 100) / 100).toString()
+    if (e.kind === 'battery') return vs + 'V'
+    if (e.kind === 'resistor' || e.kind === 'lamp' || e.kind === 'rheostat' ||
+        e.kind === 'motor' || e.kind === 'heater') return KIND_STYLE[e.kind].symbol + vs
+    if (e.kind === 'switch') return e.closed === false ? 'S断' : 'S'
+    return KIND_STYLE[e.kind].symbol
+  },
+
+  findEl(id) {
+    for (var i = 0; i < this.elements.length; i++) {
+      var parts = this.elements[i].dir + '-' + this.elements[i].r + '-' + this.elements[i].c
+      if (parts === id) return this.elements[i]
+    }
+    return null
+  },
+
+  // ---- 交互 ----
+  press(id) { this.pressedId = id },
+  release() { this.pressedId = '' },
+
+  tapEdge(id) {
+    this.pressedId = ''
+    var e = this.findEl(id)
+    if (!e) {
+      this.selId = id
+      this.replaceMode = false
+      this.sheet = 'kind'
+      return
+    }
+    this.selId = id
+    this.actKind = e.kind
+    this.actClosed = e.closed !== false
+    this.actTitle = KIND_STYLE[e.kind].name
+    this.actValueText = e.kind === 'wire' || e.kind === 'ammeter' || e.kind === 'voltmeter'
+      ? '无' : (Math.round(e.value * 100) / 100) + ' Ω'
+    if (e.kind === 'battery') this.actValueText = (Math.round(e.value * 100) / 100) + ' V'
+    this.actRinText = (e.rin || 0) + ' Ω'
+    this.sheet = 'act'
+  },
+
+  closeSheet() {
+    this.sheet = ''
+  },
+
+  pickKind(item) {
+    var id = this.selId
+    var parts = id.split('-')
+    var dir = parts[0]
+    var r = parseInt(parts[1], 10)
+    var c = parseInt(parts[2], 10)
+    var a = r * COLS + c
+    var b = dir === 'h' ? a + 1 : a + COLS
+    var el = {
+      kind: item.kind,
+      value: KIND_DEF[item.kind],
+      closed: true,
+      rin: 0,
+      a: a, b: b, dir: dir, r: r, c: c
+    }
+    var idx = -1
+    for (var i = 0; i < this.elements.length; i++) {
+      var p = this.elements[i].dir + '-' + this.elements[i].r + '-' + this.elements[i].c
+      if (p === id) { idx = i; break }
+    }
+    if (idx >= 0) {
+      this.elements[idx] = el
+    } else {
+      this.elements.push(el)
+    }
+    this.sheet = ''
+    this.render()
+    this.liveSolve()
+    this.save()
+  },
+
+  openKindsForReplace() {
+    this.replaceMode = true
+    this.sheet = 'kind'
+  },
+
+  removeEl() {
+    for (var i = 0; i < this.elements.length; i++) {
+      var p = this.elements[i].dir + '-' + this.elements[i].r + '-' + this.elements[i].c
+      if (p === this.selId) {
+        this.elements.splice(i, 1)
+        break
+      }
+    }
+    this.sheet = ''
+    this.render()
+    this.liveSolve()
+    this.save()
+  },
+
+  toggleSwitch() {
+    var e = this.findEl(this.selId)
+    if (e) {
+      e.closed = e.closed === false
+      this.actClosed = e.closed
+      this.sheet = ''
+      this.render()
+      this.liveSolve()
+      this.save()
+    }
+  },
+
+  editValue() {
+    var e = this.findEl(this.selId)
+    if (!e) return
+    if (e.kind === 'wire' || e.kind === 'ammeter' || e.kind === 'voltmeter' || e.kind === 'switch') {
+      this.sheet = ''
+      return
+    }
+    this.padTarget = 'value'
+    this.padTitle = KIND_STYLE[e.kind].name + ' 数值'
+    this.buffer = (Math.round(e.value * 1000) / 1000).toString()
+    this.sheet = 'pad'
+  },
+
+  editRin() {
+    var e = this.findEl(this.selId)
+    if (!e) return
+    this.padTarget = 'rin'
+    this.padTitle = '电源内阻 (Ω)'
+    this.buffer = ((e.rin || 0)).toString()
+    this.sheet = 'pad'
+  },
+
+  key(k) {
+    this.buffer = numpad.press({ buffer: this.buffer }, k)
+  },
+
+  confirmPad() {
+    var v = numpad.confirm({ buffer: this.buffer })
+    if (v < 0) v = -v
+    var e = this.findEl(this.selId)
+    if (e) {
+      if (this.padTarget === 'value') e.value = v
+      else e.rin = v
+    }
+    this.buffer = '0'
+    this.padTarget = ''
+    this.sheet = ''
+    this.render()
+    this.liveSolve()
+    this.save()
+  },
+
+  openPresets() {
+    this.sheet = 'preset'
+  },
+
+  loadPreset(item) {
+    this.loadPresetById(item.id)
+    this.sheet = ''
+  },
+
+  loadPresetById(id) {
+    for (var i = 0; i < PRESETS.length; i++) {
+      if (PRESETS[i].id === id) {
+        this.elements = expand(PRESETS[i])
+        this.render()
+        this.liveSolve()
+        this.save()
+        return
+      }
+    }
+  },
+
+  clearAll() {
+    this.elements = []
+    this.render()
+    this.statusText = '还没有元件'
+    this.statusSub = '点任意一格放元件'
+    this.save()
+  },
+
+  liveSolve() {
+    if (!this.elements.length) {
+      this.statusText = '还没有元件'
+      this.statusSub = '点任意一格放元件'
+      return
+    }
+    var r = solve(this.elements, {})
+    if (!r.ok) {
+      this.statusText = '电路无解'
+      this.statusSub = '电源被导线短路了'
+      return
+    }
+    var t = r.total
+    if (r.state === 'open') {
+      this.statusText = '断路'
+      this.statusSub = '没有形成闭合回路'
+      return
+    }
+    if (r.state === 'short') {
+      this.statusText = '短路'
+      this.statusSub = '电源被导线直接接通'
+      return
+    }
+    this.statusText = 'I = ' + fmtI(t.I) + '   R = ' + fmtR(t.R)
+    this.statusSub = 'U = ' + fmtU(t.U) + '   P总 = ' + fmtP(t.P) + '   · ' + this.elements.length + ' 个元件'
+  },
+
+  doSolve() {
+    if (!this.elements.length) {
+      this.statusText = '还没有元件'
+      return
+    }
+    draft.elements = this.elements
+    draft.result = solve(this.elements, {})
+    router.push({ uri: '/pages/result' })
+  },
+
+  save() {
+    db.set('circuit', { els: this.elements, t: Date.now() })
+  },
+
+  goBack() {
+    router.back()
+  }
+}
+
+function fmtI(x) {
+  var a = Math.abs(x)
+  if (a >= 1) return round3(x) + ' A'
+  if (a >= 1e-3) return round3(x * 1000) + ' mA'
+  return round3(x * 1e6) + ' μA'
+}
+function fmtU(x) {
+  var a = Math.abs(x)
+  if (a >= 1) return round3(x) + ' V'
+  if (a >= 1e-3) return round3(x * 1000) + ' mV'
+  return round3(x * 1e6) + ' μV'
+}
+function fmtR(x) {
+  if (!isFinite(x)) return '∞'
+  var a = Math.abs(x)
+  if (a >= 1e6) return round3(x / 1e6) + ' MΩ'
+  if (a >= 1e3) return round3(x / 1e3) + ' kΩ'
+  return round3(x) + ' Ω'
+}
+function fmtP(x) {
+  var a = Math.abs(x)
+  if (a >= 1) return round3(x) + ' W'
+  if (a >= 1e-3) return round3(x * 1000) + ' mW'
+  return round3(x * 1e6) + ' μW'
+}
+function round3(x) {
+  return String(parseFloat(x.toPrecision(4)))
+}
+</script>
+
+<style>
+@import '../../common/style.css';
+
+.canvas {
+  position: absolute;
+  left: 0px;
+  top: 84px;
+  width: 336px;
+  height: 264px;
+}
+
+.node {
+  position: absolute;
+}
+
+.slot {
+  position: absolute;
+}
+
+.wire {
+  position: absolute;
+  background-color: #6C7D9B;
+}
+
+.cbox {
+  position: absolute;
+  border-radius: 8px;
+  border-width: 2px;
+  justify-content: center;
+  align-items: center;
+  background-color: #0B1120;
+}
+
+.cbox-text {
+  font-size: 17px;
+  font-weight: bold;
+  color: #FFFFFF;
+  text-align: center;
+  lines: 1;
+}
+
+.cbox--battery { border-color: #FF6B5E; }
+.cbox--resistor { border-color: #5FE3FF; }
+.cbox--lamp { border-color: #FFC94D; }
+.cbox--switch { border-color: #69F0AE; }
+.cbox--ammeter { border-color: #A78BFA; }
+.cbox--voltmeter { border-color: #F472B6; }
+.cbox--rheostat { border-color: #4ADE80; }
+.cbox--motor { border-color: #94A3B8; }
+.cbox--heater { border-color: #F0A868; }
+
+.statusbar {
+  position: absolute;
+  left: 0px;
+  top: 348px;
+  width: 336px;
+  height: 132px;
+  padding: 6px 12px 0 12px;
+}
+
+.status-row {
+  width: 100%;
+  height: 66px;
+  border-radius: 18px;
+  background-color: #0C111C;
+  border-width: 1px;
+  border-color: #1B2334;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 16px;
+}
+
+.status-main {
+  font-size: 26px;
+  font-weight: bold;
+  color: #5FE3FF;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.status-sub {
+  font-size: 19px;
+  font-weight: bold;
+  color: #62708C;
+  margin-top: 3px;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.status-row2 {
+  width: 100%;
+  height: 54px;
+  flex-direction: row;
+  margin-top: 8px;
+}
+
+.sbtn {
+  flex: 1;
+  height: 54px;
+  border-radius: 18px;
+  background-color: #141B2B;
+  border-width: 1px;
+  border-color: #222C42;
+  justify-content: center;
+  align-items: center;
+  margin-right: 8px;
+}
+
+.sbtn--go {
+  background-color: #1B4FD8;
+  border-color: #1B4FD8;
+  margin-right: 0px;
+}
+
+.sbtn-text {
+  font-size: 24px;
+  font-weight: bold;
+  color: #FFFFFF;
+  lines: 1;
+}
+
+.sbtn-text--dim {
+  color: #8C9BB5;
+}
+
+.kind-grid {
+  width: 100%;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.kind-cell {
+  width: 148px;
+  height: 58px;
+  border-radius: 16px;
+  background-color: #141B2B;
+  border-width: 1px;
+  border-color: #1C2438;
+  flex-direction: row;
+  align-items: center;
+  margin: 3px;
+  padding: 0 12px;
+}
+
+.kind-symbol {
+  font-size: 26px;
+  font-weight: bold;
+  width: 40px;
+  lines: 1;
+}
+
+.kind-name {
+  font-size: 20px;
+  font-weight: bold;
+  color: #DCE6F7;
+  flex: 1;
+  lines: 1;
+}
+</style>

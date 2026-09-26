@@ -1,0 +1,57 @@
+{
+  "package": "com.physics.electrobox",
+  "name": "电学工具箱",
+  "versionName": "1.0.0",
+  "versionCode": 100,
+  "minPlatformVersion": 1100,
+  "icon": "/common/images/icon.png",
+  "deviceTypeList": [
+    "watch"
+  ],
+  "features": [
+    { "name": "system.router" },
+    { "name": "system.storage" },
+    { "name": "system.vibrator" },
+    { "name": "system.device" }
+  ],
+  "config": {
+    "logLevel": "log",
+    "designWidth": 336
+  },
+  "router": {
+    "entry": "pages/index",
+    "pages": {
+      "pages/index": {
+        "component": "index",
+        "launchMode": "singleTask"
+      },
+      "pages/circuit": {
+        "component": "circuit"
+      },
+      "pages/result": {
+        "component": "result"
+      },
+      "pages/calc": {
+        "component": "calc"
+      },
+      "pages/dynamic": {
+        "component": "dynamic"
+      },
+      "pages/voltammetry": {
+        "component": "voltammetry"
+      },
+      "pages/formulas": {
+        "component": "formulas"
+      },
+      "pages/traps": {
+        "component": "traps"
+      },
+      "pages/help": {
+        "component": "help"
+      }
+    }
+  },
+  "display": {
+    "backgroundColor": "#05070C"
+  }
+}

@@ -1,0 +1,10 @@
+<script>
+export default {
+  onCreate() {
+    console.log('电学工具箱 created')
+  },
+  onDestroy() {
+    console.log('电学工具箱 destroyed')
+  }
+}
+</script>

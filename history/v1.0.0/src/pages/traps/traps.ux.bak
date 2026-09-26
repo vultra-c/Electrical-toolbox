@@ -1,0 +1,105 @@
+<template>
+  <div class="page {{pageAnim}}">
+
+    <list class="scroll">
+      <list-item class="trap" for="{{list}}" tid="i" type="tip">
+        <div class="trap-head">
+          <div class="trap-no"><text class="trap-no-text">{{pad($item.i)}}</text></div>
+          <text class="trap-title">{{$item.t}}</text>
+        </div>
+        <text class="trap-desc">{{$item.d}}</text>
+      </list-item>
+      <list-item type="footer" style="height: 70px;"></list-item>
+    </list>
+
+    <div class="topbar">
+      <img static src="/common/images/hd.png" style="position: absolute; left: 0px; top: 0px; width: 336px; height: 84px;" />
+      <img static src="/common/images/back.png" @click="goBack" style="position: absolute; left: 6px; top: 6px; width: 72px; height: 72px;" />
+      <text style="position: absolute; left: 78px; top: 20px; width: 180px; line-height: 40px; font-size: 28px; font-weight: bold; color: #FFFFFF; text-align: center; lines: 1;">易错点</text>
+      <text style="position: absolute; left: 78px; top: 56px; width: 180px; line-height: 22px; font-size: 18px; font-weight: bold; color: #5B6B84; text-align: center; lines: 1;">中考电学高频陷阱 · 考前必看</text>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import { TRAPS } from '../../common/knowledge.js'
+
+export default {
+  private: {
+    pageAnim: 'page--anim',
+    list: TRAPS
+  },
+
+  onShow() {
+    var self = this
+    this.pageAnim = 'page--back'
+    setTimeout(function () {
+      if (self.$valid) self.pageAnim = ''
+    }, 300)
+  },
+
+  pad(n) {
+    return n < 9 ? '0' + (n + 1) : String(n + 1)
+  },
+
+  goBack() {
+    router.back()
+  }
+}
+</script>
+
+<style>
+@import '../../common/style.css';
+
+.trap {
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  border-radius: 20px;
+  background-color: #1A1119;
+  border-width: 1px;
+  border-color: #3A1F2C;
+  flex-direction: column;
+}
+
+.trap-head {
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+}
+
+.trap-no {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background-color: #B4401F;
+  justify-content: center;
+  align-items: center;
+  margin-right: 10px;
+}
+
+.trap-no-text {
+  font-size: 19px;
+  font-weight: bold;
+  color: #FFFFFF;
+  lines: 1;
+}
+
+.trap-title {
+  font-size: 24px;
+  font-weight: bold;
+  color: #FFB020;
+  flex: 1;
+  lines: 1;
+  text-overflow: ellipsis;
+}
+
+.trap-desc {
+  font-size: 20px;
+  font-weight: bold;
+  color: #B9A6B4;
+  margin-top: 6px;
+  line-height: 29px;
+}
+</style>

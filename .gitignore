@@ -1,0 +1,10 @@
+/node_modules
+/build
+/dist
+/.temp_*
+/.nyc_output
+/coverage
+*.log
+
+# 签名私钥：绝不提交（证书 certificate.pem 可以提交，用于校验 rpk 签名）
+sign/private.pem

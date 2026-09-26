@@ -1,0 +1,256 @@
+<template>
+  <div class="page {{pageAnim}}">
+
+    <list class="scroll">
+      <list-item type="tip">
+        <div class="panel">
+          <div class="seg" style="margin-bottom: 10px;">
+            <div class="seg-item {{mode === 'inner' ? 'seg-item--on' : ''}}" @click="setMode('inner')">
+              <text class="seg-text {{mode === 'inner' ? 'seg-text--on' : ''}}">内接法</text>
+            </div>
+            <div class="seg-item {{mode === 'outer' ? 'seg-item--on' : ''}}" @click="setMode('outer')">
+              <text class="seg-text {{mode === 'outer' ? 'seg-text--on' : ''}}">外接法</text>
+            </div>
+          </div>
+
+          <div class="field" @click="openPad('Rx')">
+            <text class="field-label">待测电阻 Rx</text>
+            <text class="field-value">{{disp('Rx')}}</text>
+            <text class="field-unit">Ω</text>
+          </div>
+          <div class="field" @click="openPad('Ra')">
+            <text class="field-label">电流表内阻 Ra</text>
+            <text class="field-value">{{disp('Ra')}}</text>
+            <text class="field-unit">Ω</text>
+          </div>
+          <div class="field" @click="openPad('Rv')">
+            <text class="field-label">电压表内阻 Rv</text>
+            <text class="field-value">{{disp('Rv')}}</text>
+            <text class="field-unit">Ω</text>
+          </div>
+          <div class="field" @click="openPad('U')">
+            <text class="field-label">电源电压 U</text>
+            <text class="field-value">{{disp('U')}}</text>
+            <text class="field-unit">V</text>
+          </div>
+
+          <div class="btn" @click="run" style="margin-top: 4px;">
+            <text class="btn-text">计算测量结果</text>
+          </div>
+
+          <div class="result-hero" if="{{out.ok}}" style="margin-top: 10px;">
+            <text class="result-hero-label">测得电阻 R测</text>
+            <text class="result-hero-value">{{out.Rm}}</text>
+            <text class="step" for="{{out.steps}}" tid="id">{{$item}}</text>
+          </div>
+
+          <div class="card card--flat" if="{{out.ok}}" style="margin-top: 8px;">
+            <text class="card-title">电表读数</text>
+            <div class="kv"><text class="kv-k">电流表读数 I</text><text class="kv-v">{{out.I}}</text></div>
+            <div class="kv"><text class="kv-k">电压表读数 U</text><text class="kv-v">{{out.U}}</text></div>
+            <div class="kv"><text class="kv-k">量程建议</text><text class="kv-v kv-v--warn">{{out.range}}</text></div>
+          </div>
+
+          <div class="card" if="{{out.ok}}" style="margin-top: 8px;">
+            <text class="card-title">接法怎么选</text>
+            <text class="step">{{out.fit}}</text>
+            <text class="step">比较 Rx 与 √(Ra·Rv)，谁更接近就选哪种接法误差更小</text>
+            <text class="step">临界电阻 R临 = √(Ra × Rv) = {{out.Rcrit}}</text>
+          </div>
+        </div>
+      </list-item>
+    </list>
+
+    <div class="topbar">
+      <img static src="/common/images/hd.png" style="position: absolute; left: 0px; top: 0px; width: 336px; height: 84px;" />
+      <img static src="/common/images/back.png" @click="goBack" style="position: absolute; left: 6px; top: 6px; width: 72px; height: 72px;" />
+      <text style="position: absolute; left: 78px; top: 20px; width: 180px; line-height: 40px; font-size: 28px; font-weight: bold; color: #FFFFFF; text-align: center; lines: 1;">伏安法测电阻</text>
+      <text style="position: absolute; left: 78px; top: 56px; width: 180px; line-height: 22px; font-size: 18px; font-weight: bold; color: #5B6B84; text-align: center; lines: 1;">内接 / 外接与误差分析</text>
+    </div>
+
+    <div if="{{padOpen}}" class="mask"></div>
+    <div if="{{padOpen}}" class="keypad">
+      <div class="keypad-head">
+        <text class="keypad-title">{{padTitle}}</text>
+        <text class="keypad-value">{{buffer}}</text>
+      </div>
+      <div class="keypad-body">
+        <div class="key-row">
+          <div class="key" for="{{row1}}" tid="k" @click="key($item)"><text class="key-text">{{$item}}</text></div>
+        </div>
+        <div class="key-row">
+          <div class="key" for="{{row2}}" tid="k" @click="key($item)"><text class="key-text">{{$item}}</text></div>
+        </div>
+        <div class="key-row">
+          <div class="key" for="{{row3}}" tid="k" @click="key($item)"><text class="key-text">{{$item}}</text></div>
+        </div>
+        <div class="key-row">
+          <div class="key key--fn" @click="key('.')"><text class="key-text">.</text></div>
+          <div class="key" @click="key('0')"><text class="key-text">0</text></div>
+          <div class="key key--del" @click="key('<')"><text class="key-text">⌫</text></div>
+        </div>
+        <div class="key-row key-row--last">
+          <div class="key key--fn" @click="key('C')"><text class="key-text key-text--fn">清空</text></div>
+          <div class="key key--ok key--wide" @click="confirmPad"><text class="key-text key-text--ok">确定</text></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import router from '@system.router'
+import numpad from '../../common/numpad.js'
+import * as phy from '../../common/physics.js'
+
+var LABELS = {
+  Rx: '待测电阻 Rx (Ω)',
+  Ra: '电流表内阻 Ra (Ω)',
+  Rv: '电压表内阻 Rv (Ω)',
+  U: '电源电压 U (V)'
+}
+
+export default {
+  private: {
+    pageAnim: 'page--anim',
+    mode: 'inner',
+    vals: { Rx: '10', Ra: '0.5', Rv: '3000', U: '6' },
+    padOpen: false,
+    padKey: '',
+    padTitle: '',
+    buffer: '0',
+    padStarted: false,
+    row1: ['1', '2', '3'],
+    row2: ['4', '5', '6'],
+    row3: ['7', '8', '9'],
+    out: { ok: false }
+  },
+
+  onInit() {
+    this.run()
+  },
+
+  onShow() {
+    var self = this
+    this.pageAnim = 'page--back'
+    setTimeout(function () {
+      if (self.$valid) self.pageAnim = ''
+    }, 300)
+  },
+
+  num(k) {
+    var v = parseFloat(this.vals[k])
+    return isNaN(v) ? 0 : v
+  },
+
+  disp(k) {
+    var v = this.vals[k]
+    if (v === '' || v === undefined) return '未填'
+    var n = parseFloat(v)
+    if (isNaN(n)) return '未填'
+    return String(parseFloat(n.toPrecision(5)))
+  },
+
+  setMode(m) {
+    this.mode = m
+    this.run()
+  },
+
+  openPad(key) {
+    this.padKey = key
+    this.padTitle = LABELS[key]
+    this.padOpen = true
+    this.padStarted = false
+    this.buffer = this.vals[key] || '0'
+  },
+
+  key(k) {
+    this.buffer = numpad.press({ buffer: this.buffer, started: this.padStarted }, k)
+    this.padStarted = true
+  },
+
+  confirmPad() {
+    var v = numpad.confirm({ buffer: this.buffer })
+    this.vals[this.padKey] = String(v)
+    this.padOpen = false
+    this.buffer = '0'
+    this.padStarted = false
+    this.run()
+  },
+
+  run() {
+    var Rx = this.num('Rx')
+    var Ra = this.num('Ra')
+    var Rv = this.num('Rv')
+    var U = this.num('U')
+    if (!Rx || !Rv) {
+      this.out = { ok: false }
+      return
+    }
+    var r = phy.voltammetry({ Rv: Rv, Ra: Ra, Rx: Rx, find: this.mode })
+    // 内接：电压表测 (Rx+Ra)；外接：电流表测干路
+    var I
+    var Uvol
+    if (this.mode === 'inner') {
+      Uvol = (U * Rx) / (Rx + Ra)
+      I = Uvol / Rx
+    } else {
+      Uvol = U
+      I = U / (Rx + Ra)
+    }
+    this.out = {
+      ok: true,
+      Rm: fmtR(r.Rm),
+      steps: r.steps,
+      I: fmtI(I),
+      U: fmtU(Uvol),
+      fit: r.fit,
+      range: this.rangeAdvice(I, Uvol),
+      Rcrit: fmtR(Math.sqrt(Ra * Rv))
+    }
+  },
+
+  rangeAdvice(I, U) {
+    var parts = []
+    parts.push('电流表 ' + (I <= 0.6 ? '用 0~0.6A 量程' : '用 0~3A 量程'))
+    parts.push('电压表 ' + (U <= 3 ? '用 0~3V 量程' : '用 0~15V 量程'))
+    return parts.join('，')
+  },
+
+  goBack() {
+    router.back()
+  }
+}
+
+function sig(n) { return String(parseFloat(n.toPrecision(4))) }
+function fmtI(x) {
+  var a = Math.abs(x)
+  if (a < 1e-9) return '0'
+  if (a >= 1) return sig(x) + 'A'
+  if (a >= 1e-3) return sig(x * 1000) + 'mA'
+  return sig(x * 1e6) + 'μA'
+}
+function fmtU(x) {
+  var a = Math.abs(x)
+  if (a < 1e-9) return '0'
+  if (a >= 1) return sig(x) + 'V'
+  if (a >= 1e-3) return sig(x * 1000) + 'mV'
+  return sig(x * 1e6) + 'μV'
+}
+function fmtR(x) {
+  if (!isFinite(x)) return '∞'
+  var a = Math.abs(x)
+  if (a >= 1e6) return sig(x / 1e6) + 'MΩ'
+  if (a >= 1e3) return sig(x / 1e3) + 'kΩ'
+  return sig(x) + 'Ω'
+}
+</script>
+
+<style>
+@import '../../common/style.css';
+
+.panel {
+  width: 100%;
+  flex-direction: column;
+}
+</style>
